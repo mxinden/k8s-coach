@@ -1,9 +1,8 @@
 FROM python:2
 
-COPY main.py /usr/src/app/
-COPY config.yml /usr/src/app/
-
 RUN pip install requests pyyaml schedule pyopenssl
+
+COPY main.py /usr/src/app/
 
 WORKDIR /usr/src/app
 

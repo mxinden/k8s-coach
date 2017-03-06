@@ -1,0 +1,10 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: k8s-coach-config
+data:
+  k8s-coach-config.yml: |
+    name: fake-webserver
+    high: 20
+    low: 10
+    interval: 5

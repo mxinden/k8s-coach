@@ -12,34 +12,43 @@ kubeToken = None
 prevScalingUp = True
 kubernetesServiceHostUrl = os.environ['KUBERNETES_SERVICE_HOST']
 kubernetesPort443TCPPort = os.environ['KUBERNETES_PORT_443_TCP_PORT']
-url = 'https://' + kubernetesServiceHostUrl + ':' + kubernetesPort443TCPPort + '/apis/extensions/v1beta1/namespaces/default/deployments/'
+url = 'https://' + kubernetesServiceHostUrl + ':' + kubernetesPort443TCPPort
+urlDeployments = url + '/apis/extensions/v1beta1/namespaces/default/deployments/'
+urlConfigMaps = url + '/api/v1/namespaces/default/configmaps/'
 verify = "/var/run/secrets/kubernetes.io/serviceaccount/ca.crt"
 
 with open("/var/run/secrets/kubernetes.io/serviceaccount/token", 'r') as f:
     kubeToken = f.read()
 headers = {'Content-type': 'application/json', 'Authorization': 'Bearer ' + kubeToken}
 
-with open("config.yml", 'r') as f:
-    config = yaml.load(f)
+def getConfig():
+    print("Updating k8s-coach-config")
+    global headers
+    global verify
+    global config
+    configMap = requests.get((urlConfigMaps + 'k8s-coach-config'), headers=headers, verify=verify).json()
+    config = yaml.load(configMap["data"]["k8s-coach-config.yml"])
+    print("Updated k8s-coach-config")
 
 def scaleDeployment(amountInstances):
     global headers
     global verify
-    fakeWebserverDeploy = requests.get((url + config["schedule"]["name"]), headers=headers, verify=verify).json()
-    print("Scaling to: ", str(amountInstances))
+    fakeWebserverDeploy = requests.get((urlDeployments + config["name"]), headers=headers, verify=verify).json()
+    print("Scaling " + config["name"] + " to: " + str(amountInstances))
     fakeWebserverDeploy["spec"]["replicas"] = amountInstances
-    r = requests.put(url + "fake-webserver/", data=json.dumps(fakeWebserverDeploy), headers=headers, verify=verify)
-    print(r.status_code)
+    requests.put(urlDeployments + "fake-webserver/", data=json.dumps(fakeWebserverDeploy), headers=headers, verify=verify)
 
 def alternateUpDownScaling():
     global prevScalingUp
     if prevScalingUp:
-        scaleDeployment(config["schedule"]["low"])
+        scaleDeployment(config["low"])
     else:
-        scaleDeployment(config["schedule"]["high"])
+        scaleDeployment(config["high"])
     prevScalingUp = not prevScalingUp
 
-schedule.every(config["schedule"]["interval"]).seconds.do(alternateUpDownScaling)
+getConfig()
+schedule.every(30).seconds.do(getConfig)
+schedule.every(config["interval"]).seconds.do(alternateUpDownScaling)
 
 while True:
     schedule.run_pending()

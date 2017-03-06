@@ -1,5 +1,0 @@
-schedule:
-  name: fake-webserver
-  high: 20
-  low: 10
-  interval: 5
